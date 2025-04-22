@@ -1,162 +1,139 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BibliotecaApp
+namespace BibliotecaAppRefatorado
 {
-    // Interface para enviar notificações
+    // Interface de Notificação
     public interface INotificacaoService
     {
-        void EnviarEmail(string destinatario, string assunto, string mensagem);
-        void EnviarSMS(string destinatario, string mensagem);
+        void EnviarNotificacao(string destinatario, string assunto, string mensagem);
     }
 
-    // Implementação do serviço de notificações
+    // Implementação do Serviço de Notificação
     public class NotificacaoService : INotificacaoService
     {
-        public void EnviarEmail(string destinatario, string assunto, string mensagem)
+        public void EnviarNotificacao(string destinatario, string assunto, string mensagem)
         {
-            Console.WriteLine($"E-mail enviado para {destinatario}. Assunto: {assunto}");
-        }
-
-        public void EnviarSMS(string destinatario, string mensagem)
-        {
-            Console.WriteLine($"SMS enviado para {destinatario}: {mensagem}");
+            Console.WriteLine($"[NOTIFICAÇÃO] Para: {destinatario}\nAssunto: {assunto}\nMensagem: {mensagem}");
         }
     }
 
-    // Tipos de Usuário
-    public abstract class Usuario
-    {
-        public string Nome { get; set; }
-        public int ID { get; set; }
-    }
-
-    public class UsuarioComum : Usuario
-    {
-        public string Endereco { get; set; }
-    }
-
-    public class Funcionario : Usuario
-    {
-        public string Cargo { get; set; }
-    }
-
-    // Interface para gerenciar biblioteca
-    public interface IBibliotecaService
-    {
-        void AdicionarLivro(string titulo, string autor, string isbn);
-        void AdicionarUsuario(Usuario usuario);
-        bool RealizarEmprestimo(int usuarioId, string isbn, int diasEmprestimo);
-        double RealizarDevolucao(string isbn, int usuarioId);
-        List<Livro> BuscarTodosLivros();
-        List<Usuario> BuscarTodosUsuarios();
-        List<Funcionario> BuscarFuncionarios();
-        List<UsuarioComum> BuscarUsuariosComuns();
-    }
-
-    // Implementação do gerenciamento da biblioteca
-    public class BibliotecaService : IBibliotecaService
+    // Classe de Gerenciamento de Livros
+    public class GerenciadorLivros
     {
         private readonly List<Livro> livros = new List<Livro>();
-        private readonly List<UsuarioComum> usuariosComuns = new List<UsuarioComum>();
-        private readonly List<Funcionario> funcionarios = new List<Funcionario>();
+
+        public void AdicionarLivro(string titulo, string autor, string isbn)
+        {
+            if (livros.Any(l => l.ISBN == isbn))
+            {
+                throw new Exception("Erro: ISBN já cadastrado.");
+            }
+            livros.Add(new Livro { Titulo = titulo, Autor = autor, ISBN = isbn, Disponivel = true });
+            Console.WriteLine($"Livro '{titulo}' cadastrado com sucesso!");
+        }
+
+        public Livro BuscarLivro(string isbn)
+        {
+            return livros.FirstOrDefault(l => l.ISBN == isbn && l.Disponivel)
+                   ?? throw new Exception("Livro não disponível ou não encontrado.");
+        }
+
+        public void AtualizarDisponibilidade(string isbn, bool disponivel)
+        {
+            var livro = livros.FirstOrDefault(l => l.ISBN == isbn)
+                        ?? throw new Exception("Livro não encontrado.");
+            livro.Disponivel = disponivel;
+        }
+
+        public List<Livro> ListarLivros() => livros;
+    }
+
+    // Classe de Gerenciamento de Usuários
+    public class GerenciadorUsuarios
+    {
+        private readonly List<Usuario> usuarios = new List<Usuario>();
+
+        public void AdicionarUsuario(int id, string nome)
+        {
+            if (usuarios.Any(u => u.ID == id))
+            {
+                throw new Exception("Erro: ID já cadastrado.");
+            }
+            usuarios.Add(new Usuario { ID = id, Nome = nome });
+            Console.WriteLine($"Usuário '{nome}' cadastrado com sucesso!");
+        }
+
+        public Usuario BuscarUsuario(int id)
+        {
+            return usuarios.FirstOrDefault(u => u.ID == id) ?? throw new Exception("Usuário não encontrado.");
+        }
+
+        public List<Usuario> ListarUsuarios() => usuarios;
+    }
+
+    // Classe de Gerenciamento de Empréstimos
+    public class GerenciadorEmprestimos
+    {
+        private readonly List<Emprestimo> emprestimos = new List<Emprestimo>();
         private readonly INotificacaoService notificacaoService;
 
-        public BibliotecaService(INotificacaoService notificacaoService)
+        public GerenciadorEmprestimos(INotificacaoService notificacaoService)
         {
             this.notificacaoService = notificacaoService;
         }
 
-        public void AdicionarLivro(string titulo, string autor, string isbn)
+        public void RealizarEmprestimo(Usuario usuario, Livro livro, int diasEmprestimo)
         {
-            if (livros.Exists(l => l.ISBN == isbn))
-            {
-                throw new Exception("Erro: ISBN já cadastrado.");
-            }
-
-            var livro = new Livro
-            {
-                Titulo = titulo,
-                Autor = autor,
-                ISBN = isbn,
-                Disponivel = true
-            };
-            livros.Add(livro);
-        }
-
-        public void AdicionarUsuario(Usuario usuario)
-        {
-            if (usuario is UsuarioComum comum)
-            {
-                if (usuariosComuns.Exists(u => u.ID == comum.ID))
-                {
-                    throw new Exception("Erro: ID de usuário comum já cadastrado.");
-                }
-                usuariosComuns.Add(comum);
-                notificacaoService.EnviarEmail(comum.Nome, "Bem-vindo à Biblioteca", "Cadastro realizado com sucesso!");
-            }
-            else if (usuario is Funcionario funcionario)
-            {
-                if (funcionarios.Exists(f => f.ID == funcionario.ID))
-                {
-                    throw new Exception("Erro: ID de funcionário já cadastrado.");
-                }
-                funcionarios.Add(funcionario);
-                notificacaoService.EnviarEmail(funcionario.Nome, "Bem-vindo à equipe", "Você foi cadastrado como funcionário da biblioteca!");
-            }
-        }
-
-        public bool RealizarEmprestimo(int usuarioId, string isbn, int diasEmprestimo)
-        {
-            var livro = livros.Find(l => l.ISBN == isbn);
-            var usuario = usuariosComuns.Find(u => u.ID == usuarioId) as Usuario ?? funcionarios.Find(f => f.ID == usuarioId);
-
-            if (livro == null)
-            {
-                throw new Exception("Erro: Livro não encontrado.");
-            }
-
-            if (usuario == null)
-            {
-                throw new Exception("Erro: Usuário não encontrado.");
-            }
-
-            if (!livro.Disponivel)
-            {
-                throw new Exception("Erro: Livro indisponível.");
-            }
-
             livro.Disponivel = false;
-            notificacaoService.EnviarEmail(usuario.Nome, "Empréstimo Realizado", $"Você pegou emprestado o livro: {livro.Titulo}");
-            notificacaoService.EnviarSMS(usuario.Nome, $"Empréstimo do livro: {livro.Titulo}");
+            var emprestimo = new Emprestimo
+            {
+                Usuario = usuario,
+                Livro = livro,
+                DataEmprestimo = DateTime.Now,
+                DataDevolucaoPrevista = DateTime.Now.AddDays(diasEmprestimo)
+            };
+            emprestimos.Add(emprestimo);
 
-            return true;
+            notificacaoService.EnviarNotificacao(
+                usuario.Nome,
+                "Empréstimo Realizado",
+                $"Você pegou emprestado o livro: {livro.Titulo}. Devolva até {emprestimo.DataDevolucaoPrevista:dd/MM/yyyy}."
+            );
+
+            Console.WriteLine($"Empréstimo realizado para '{usuario.Nome}', livro '{livro.Titulo}'.");
         }
 
-        public double RealizarDevolucao(string isbn, int usuarioId)
+        public double RealizarDevolucao(Usuario usuario, Livro livro)
         {
-            var livro = livros.Find(l => l.ISBN == isbn);
-            if (livro == null || livro.Disponivel)
+            var emprestimo = emprestimos.FirstOrDefault(e => e.Usuario.ID == usuario.ID && e.Livro.ISBN == livro.ISBN && e.DataDevolucaoEfetiva == null)
+                             ?? throw new Exception("Empréstimo não encontrado.");
+
+            emprestimo.DataDevolucaoEfetiva = DateTime.Now;
+            livro.Disponivel = true;
+
+            double multa = 0;
+            if (emprestimo.DataDevolucaoEfetiva > emprestimo.DataDevolucaoPrevista)
             {
-                throw new Exception("Erro: Livro já devolvido ou não encontrado.");
+                var diasAtraso = (emprestimo.DataDevolucaoEfetiva.Value - emprestimo.DataDevolucaoPrevista).Days;
+                multa = diasAtraso * 1.0;
             }
 
-            livro.Disponivel = true;
-            notificacaoService.EnviarEmail($"Usuário {usuarioId}", "Livro Devolvido", "Obrigado por devolver o livro!");
+            notificacaoService.EnviarNotificacao(
+                usuario.Nome,
+                "Devolução Realizada",
+                multa > 0
+                    ? $"Obrigado por devolver o livro '{livro.Titulo}'. Você tem uma multa de R$ {multa:N2} pelo atraso."
+                    : $"Obrigado por devolver o livro '{livro.Titulo}' dentro do prazo!"
+            );
 
-            return 0; // Sem multa neste exemplo.
+            Console.WriteLine($"Devolução realizada para '{usuario.Nome}', livro '{livro.Titulo}'. Multa: R$ {multa:N2}");
+            return multa;
         }
-
-        public List<Livro> BuscarTodosLivros() => livros;
-
-        public List<Usuario> BuscarTodosUsuarios() => usuariosComuns.Cast<Usuario>().Concat(funcionarios.Cast<Usuario>()).ToList();
-
-        public List<Funcionario> BuscarFuncionarios() => funcionarios;
-
-        public List<UsuarioComum> BuscarUsuariosComuns() => usuariosComuns;
     }
 
+    // Modelos
     public class Livro
     {
         public string Titulo { get; set; }
@@ -165,48 +142,44 @@ namespace BibliotecaApp
         public bool Disponivel { get; set; }
     }
 
+    public class Usuario
+    {
+        public int ID { get; set; }
+        public string Nome { get; set; }
+    }
+
+    public class Emprestimo
+    {
+        public Usuario Usuario { get; set; }
+        public Livro Livro { get; set; }
+        public DateTime DataEmprestimo { get; set; }
+        public DateTime DataDevolucaoPrevista { get; set; }
+        public DateTime? DataDevolucaoEfetiva { get; set; }
+    }
+
+    // Classe principal
     public class Program
     {
         public static void Main(string[] args)
         {
             var notificacaoService = new NotificacaoService();
-            var bibliotecaService = new BibliotecaService(notificacaoService);
+            var gerenciadorLivros = new GerenciadorLivros();
+            var gerenciadorUsuarios = new GerenciadorUsuarios();
+            var gerenciadorEmprestimos = new GerenciadorEmprestimos(notificacaoService);
 
-            try
-            {
-                // Adicionar livros
-                bibliotecaService.AdicionarLivro("Clean Code", "Robert C. Martin", "978-0132350884");
+            // Adicionar livros
+            gerenciadorLivros.AdicionarLivro("Clean Code", "Robert C. Martin", "978-0132350884");
 
-                // Adicionar usuários comuns
-                bibliotecaService.AdicionarUsuario(new UsuarioComum { Nome = "João Silva", ID = 1, Endereco = "Rua A, 123" });
-                bibliotecaService.AdicionarUsuario(new UsuarioComum { Nome = "Maria Oliveira", ID = 2, Endereco = "Rua B, 456" });
+            // Adicionar usuários
+            gerenciadorUsuarios.AdicionarUsuario(1, "João Silva");
 
-                // Adicionar funcionários
-                bibliotecaService.AdicionarUsuario(new Funcionario { Nome = "Carlos Costa", ID = 1001, Cargo = "Bibliotecário" });
-                bibliotecaService.AdicionarUsuario(new Funcionario { Nome = "Ana Souza", ID = 1002, Cargo = "Assistente" });
+            // Realizar empréstimo
+            var usuario = gerenciadorUsuarios.BuscarUsuario(1);
+            var livro = gerenciadorLivros.BuscarLivro("978-0132350884");
+            gerenciadorEmprestimos.RealizarEmprestimo(usuario, livro, 7);
 
-                // Realizar empréstimos
-                bibliotecaService.RealizarEmprestimo(1, "978-0132350884", 7);
-
-                // Listar todos os usuários
-                var todosUsuarios = bibliotecaService.BuscarTodosUsuarios();
-                Console.WriteLine("Todos os usuários:");
-                todosUsuarios.ForEach(u => Console.WriteLine(u.Nome));
-
-                // Listar funcionários
-                var funcionarios = bibliotecaService.BuscarFuncionarios();
-                Console.WriteLine("Funcionários:");
-                funcionarios.ForEach(f => Console.WriteLine($"{f.Nome} - {f.Cargo}"));
-
-                // Listar usuários comuns
-                var usuariosComuns = bibliotecaService.BuscarUsuariosComuns();
-                Console.WriteLine("Usuários Comuns:");
-                usuariosComuns.ForEach(u => Console.WriteLine($"{u.Nome} - {u.Endereco}"));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro: {ex.Message}");
-            }
+            // Realizar devolução
+            gerenciadorEmprestimos.RealizarDevolucao(usuario, livro);
         }
     }
 }
