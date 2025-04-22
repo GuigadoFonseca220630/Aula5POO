@@ -7,15 +7,21 @@ namespace BibliotecaApp
     // Interface de Notificação
     public interface INotificacaoService
     {
-        void EnviarNotificacao(string destinatario, string assunto, string mensagem);
+        void EnviarEmail(string destinatario, string assunto, string mensagem);
+        void EnviarSMS(string destinatario, string mensagem);
     }
 
     // Implementação do Serviço de Notificação
     public class NotificacaoService : INotificacaoService
     {
-        public void EnviarNotificacao(string destinatario, string assunto, string mensagem)
+        public void EnviarEmail(string destinatario, string assunto, string mensagem)
         {
-            Console.WriteLine($"[NOTIFICAÇÃO] Para: {destinatario}\nAssunto: {assunto}\nMensagem: {mensagem}");
+            Console.WriteLine($"[EMAIL] Para: {destinatario}\nAssunto: {assunto}\nMensagem: {mensagem}");
+        }
+
+        public void EnviarSMS(string destinatario, string mensagem)
+        {
+            Console.WriteLine($"[SMS] Para: {destinatario}\nMensagem: {mensagem}");
         }
     }
 
@@ -30,6 +36,7 @@ namespace BibliotecaApp
             {
                 throw new Exception("Erro: ISBN já cadastrado.");
             }
+
             livros.Add(new Livro { Titulo = titulo, Autor = autor, ISBN = isbn, Disponivel = true });
             Console.WriteLine($"Livro '{titulo}' cadastrado com sucesso!");
         }
@@ -61,6 +68,7 @@ namespace BibliotecaApp
             {
                 throw new Exception("Erro: ID já cadastrado.");
             }
+
             usuarios.Add(new Usuario { ID = id, Nome = nome });
             Console.WriteLine($"Usuário '{nome}' cadastrado com sucesso!");
         }
@@ -87,6 +95,7 @@ namespace BibliotecaApp
         public void RealizarEmprestimo(Usuario usuario, Livro livro, int diasEmprestimo)
         {
             livro.Disponivel = false;
+
             var emprestimo = new Emprestimo
             {
                 Usuario = usuario,
@@ -94,12 +103,13 @@ namespace BibliotecaApp
                 DataEmprestimo = DateTime.Now,
                 DataDevolucaoPrevista = DateTime.Now.AddDays(diasEmprestimo)
             };
+
             emprestimos.Add(emprestimo);
 
-            notificacaoService.EnviarNotificacao(
+            notificacaoService.EnviarEmail(
                 usuario.Nome,
                 "Empréstimo Realizado",
-                $"Você pegou emprestado o livro: {livro.Titulo}. Devolva até {emprestimo.DataDevolucaoPrevista:dd/MM/yyyy}."
+                $"Você emprestou o livro '{livro.Titulo}'. Devolva até {emprestimo.DataDevolucaoPrevista:dd/MM/yyyy}."
             );
 
             Console.WriteLine($"Empréstimo realizado para '{usuario.Nome}', livro '{livro.Titulo}'.");
@@ -107,8 +117,11 @@ namespace BibliotecaApp
 
         public double RealizarDevolucao(Usuario usuario, Livro livro)
         {
-            var emprestimo = emprestimos.FirstOrDefault(e => e.Usuario.ID == usuario.ID && e.Livro.ISBN == livro.ISBN && e.DataDevolucaoEfetiva == null)
-                             ?? throw new Exception("Empréstimo não encontrado.");
+            var emprestimo = emprestimos.FirstOrDefault(e =>
+                e.Usuario.ID == usuario.ID &&
+                e.Livro.ISBN == livro.ISBN &&
+                e.DataDevolucaoEfetiva == null)
+                ?? throw new Exception("Empréstimo não encontrado.");
 
             emprestimo.DataDevolucaoEfetiva = DateTime.Now;
             livro.Disponivel = true;
@@ -120,7 +133,7 @@ namespace BibliotecaApp
                 multa = diasAtraso * 1.0;
             }
 
-            notificacaoService.EnviarNotificacao(
+            notificacaoService.EnviarEmail(
                 usuario.Nome,
                 "Devolução Realizada",
                 multa > 0
@@ -157,7 +170,7 @@ namespace BibliotecaApp
         public DateTime? DataDevolucaoEfetiva { get; set; }
     }
 
-    // Classe principal
+    // Classe Principal
     public class Program
     {
         public static void Main(string[] args)
@@ -167,18 +180,13 @@ namespace BibliotecaApp
             var gerenciadorUsuarios = new GerenciadorUsuarios();
             var gerenciadorEmprestimos = new GerenciadorEmprestimos(notificacaoService);
 
-            // Adicionar livros
             gerenciadorLivros.AdicionarLivro("Clean Code", "Robert C. Martin", "978-0132350884");
-
-            // Adicionar usuários
             gerenciadorUsuarios.AdicionarUsuario(1, "João Silva");
 
-            // Realizar empréstimo
             var usuario = gerenciadorUsuarios.BuscarUsuario(1);
             var livro = gerenciadorLivros.BuscarLivro("978-0132350884");
-            gerenciadorEmprestimos.RealizarEmprestimo(usuario, livro, 7);
 
-            // Realizar devolução
+            gerenciadorEmprestimos.RealizarEmprestimo(usuario, livro, 7);
             gerenciadorEmprestimos.RealizarDevolucao(usuario, livro);
         }
     }
