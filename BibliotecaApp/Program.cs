@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BibliotecaAppRefatorado
+namespace BibliotecaApp
 {
     // Interface de Notificação
     public interface INotificacaoService
